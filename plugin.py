@@ -18,12 +18,12 @@
 	</description>
 	<params>
 		<param field="Mode1" label="GPIO Port" width="30px"  required="true" default="22"/>
-		<param field="Mode2" label="DHT Type" width="30px"  required="true"/>
+		<param field="Mode2" label="DHT Type" width="80px"  required="true">
 			<options>
 				<option label="DHT11" value="11"/>
 				<option label="DHT22/AM2302" value="22"  default="true" />
 			</options>
-		</param>    
+		</param>
 	</params>
 </plugin>
 """
@@ -31,16 +31,14 @@ import Domoticz
 
 class BasePlugin:
 	enabled = False
-	
+
 	def __init__(self):
 		self.lastGoodMeasured = dict(temp=20,humi=30)
-		
-		
 
 	def onStart(self):
 
 		Domoticz.Log("onStart called")
-	
+
 		if Parameters["Mode6"] == "Debug":
 			Domoticz.Debugging(1)
 
@@ -51,19 +49,18 @@ class BasePlugin:
 		DumpConfigToLog()
 
 		try:
-			#installed with 
+			#installed with
             #sudo pip3 install Adafruit_DHT
             #sudo apt-get install libgpiod2
-            
-			import Adafruit_DHT
-			
+		    import Adafruit_DHT
+
 		except ImportError as e:
-			Domoticz.Log("Error loading Adafruit_CCS811: {0}:{1}".format(e.__class__.__name__, e.message)) 
+            Domoticz.Log("Error loading Adafruit_CCS811: {0}:{1}".format(e.__class__.__name__, e.message))
 		except RuntimeError as er:
-			Domoticz.Log("Error running Adafruit_CCS811: {0}:{1}".format(er.__class__.__name__, str(er))) 
-		
-		Domoticz.Heartbeat(10)
-		
+            Domoticz.Log("Error running Adafruit_CCS811: {0}:{1}".format(er.__class__.__name__, str(er)))
+
+            Domoticz.Heartbeat(10)
+
 	def onStop(self):
 		Domoticz.Log("onStop called")
 
@@ -89,21 +86,21 @@ class BasePlugin:
 
 			Domoticz.Debug("In onHeartBeat. Prev value:       '" + str(self.lastGoodMeasured["co2"]) + "'")
 
-            rawHumi, rawTemp = Adafruit_DHT.read_retry(int(Parameters["Mode2"]), int(Parameters["Mode1"]))
-		
+                        rawHumi, rawTemp = Adafruit_DHT.read_retry(int(Parameters["Mode2"]), int(Parameters["Mode1"]))
+
 			self.lastGoodMeasured = dict(temp=rawTemp,humi=rawHumi)
 
 			#if (rawHumi is not None and rawHumi < 101) and rawTemp is not None:
 			#   self.temperatureBuffer.append(rawTemp)
 			#print "@%s, Average: %s" % (self.temperatureBuffer, self.temperatureBuffer.average)
 			#  self.lastGoodMeasured = dict(temp=self.temperatureBuffer.average,humi=rawHumi,co2=800)
-            
+
 		except OSError as e:
 			Domoticz.Log("OSError reading Adafruit_CCS811: {0}:{1}".format(e.__class__.__name__, str(e)))
 		except RuntimeError as e:
 			Domoticz.Log("RuntimeError reading Adafruit_CCS811: {0}:{1}".format(e.__class__.__name__, str(e)))
 
-        UpdateDevice(1, 0,  + str(rawTemp) + ";" + str(rawHumi), 100)
+                UpdateDevice(1, 0,  + str(rawTemp) + ";" + str(rawHumi), 100)
 		
 def UpdateDevice(Unit, nValue, sValue, batterylevel):
 	# Make sure that the Domoticz device still exists (they can be deleted) before updating it 
