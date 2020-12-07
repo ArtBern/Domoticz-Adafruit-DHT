@@ -35,13 +35,22 @@
 </plugin>
 """
 import Domoticz
+from collections import deque
 
+class CircularBuffer(deque):
+    def __init__(self, size=0):
+         super(CircularBuffer, self).__init__(maxlen=size)
+    @property
+    def average(self):
+        return sum(self)/len(self)
+        
 class BasePlugin:
     enabled = False
 
     def __init__(self):
         self.lastGoodMeasured = dict(temp=20,humi=30)
-
+        self.temperatureBuffer = CircularBuffer(size=20)
+        
     def onStart(self):
 
         Domoticz.Log("onStart called")
@@ -60,6 +69,7 @@ class BasePlugin:
             #sudo pip3 install Adafruit_DHT
             #sudo apt-get install libgpiod2
             import Adafruit_DHT
+            Domoticz.Debug("Adafruit_DHT imported.")
 
         except ImportError as e:
             Domoticz.Log("Error loading Adafruit_DHT: {0}:{1}".format(e.__class__.__name__, e.message))
@@ -89,25 +99,27 @@ class BasePlugin:
         Domoticz.Log("onDisconnect called")
 
     def onHeartbeat(self):
-        try:
+        #Domoticz.Debug("In onHeartBeat. Prev value:       '" + str(self.lastGoodMeasured["temp"]) + "'")
 
-            Domoticz.Debug("In onHeartBeat. Prev value:       '" + str(self.lastGoodMeasured["co2"]) + "'")
+        import Adafruit_DHT
+        rawHumi, rawTemp = Adafruit_DHT.read_retry(int(Parameters["Mode2"]), int(Parameters["Mode1"]))
 
-            rawHumi, rawTemp = Adafruit_DHT.read_retry(int(Parameters["Mode2"]), int(Parameters["Mode1"]))
-
-            self.lastGoodMeasured = dict(temp=rawTemp,humi=rawHumi)
-
-            #if (rawHumi is not None and rawHumi < 101) and rawTemp is not None:
-            #   self.temperatureBuffer.append(rawTemp)
+        if (rawHumi is not None and rawHumi < 101) and rawTemp is not None:
+            self.temperatureBuffer.append(rawTemp)
             #print "@%s, Average: %s" % (self.temperatureBuffer, self.temperatureBuffer.average)
-            #  self.lastGoodMeasured = dict(temp=self.temperatureBuffer.average,humi=rawHumi,co2=800)
+            self.lastGoodMeasured = dict(temp=self.temperatureBuffer.average,humi=rawHumi)
 
-        except OSError as e:
-            Domoticz.Log("OSError reading Adafruit_DHT: {0}:{1}".format(e.__class__.__name__, str(e)))
-        except RuntimeError as e:
-            Domoticz.Log("RuntimeError reading Adafruit_DHT: {0}:{1}".format(e.__class__.__name__, str(e)))
+        humStatus = 0
+        if rawHumi <= 25:
+            humStatus = 2
+        elif rawHumi > 60:
+            humStatus = 3
+        elif rawHumi > 25 and rawHumi <= 60:
+            humStatus = 1
+        else:
+            humStatus = 0
 
-        UpdateDevice(1, 0, str(rawTemp) + ";" + str(rawHumi), 100)
+        UpdateDevice(1, 0, str(round(self.lastGoodMeasured["temp"], 1)) + ";" + str(round(rawHumi,1)) + ";" + str(humStatus), 100)
         
 def UpdateDevice(Unit, nValue, sValue, batterylevel):
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
@@ -165,3 +177,4 @@ def DumpConfigToLog():
         Domoticz.Debug("Device sValue:   '" + Devices[x].sValue + "'")
         Domoticz.Debug("Device LastLevel: " + str(Devices[x].LastLevel))
     return      
+ 
